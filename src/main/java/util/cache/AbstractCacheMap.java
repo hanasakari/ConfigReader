@@ -1,4 +1,4 @@
-package util.LRUCache;
+package util.cache;
 
 import java.util.Map;
 import java.util.Set;
@@ -6,30 +6,17 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 //抽象
-abstract class AbstractCacheMap<K,V> implements LRUCacheImpl<K,V> {
+abstract class AbstractCacheMap<K,V> implements CacheImpl<K,V> {
     class CacheObject<K2,V2>{
-        CacheObject(K2 key, V2 value, Long ttl) {
+        CacheObject(K2 key, V2 value) {
             this.key = key;
             this.cacheObject = value;
-            this.ttl = ttl;
-            this.lastAccess = System.currentTimeMillis(); //时间类
         }
 
         final K2 key;
         final V2 cacheObject;
-        long lastAccess;		// 最后访问时间
-        long accessCount;		// 访问次数
-        long ttl;				// 对象存活时间(time-to-live)
 
-        boolean isExpired() {
-            if (ttl == 0) {
-                return false;
-            }
-            return lastAccess + ttl < System.currentTimeMillis(); //时间比对
-        }
         V2 getObject() {
-            lastAccess = System.currentTimeMillis();
-            accessCount++;
             return cacheObject;
         }
     }
@@ -44,34 +31,15 @@ abstract class AbstractCacheMap<K,V> implements LRUCacheImpl<K,V> {
     public int getFullSize(){
         return cacheSize;
     }
-    protected long defaultExpire; //默认过期时间[0,∞)/ms
     //构造方法
-    public AbstractCacheMap(int cacheSize, long defaultExpire){
+    public AbstractCacheMap(int cacheSize){
         this.cacheSize = cacheSize;
-        this.defaultExpire = defaultExpire;
     }
-    public long defaultLifeTime(){
-        return defaultExpire;
-    }
-    //判断是否需要清理
-    protected boolean isNeedClearExpiredObject(){
-        return defaultExpire > 0 || exisCustomExpire;
-    }
-
     public void put(K key,V value){
-        put(key, value,defaultExpire);
-    }
-    public void put(K key,V value,long expire){
         //开始操作开启锁定
         writeLock.lock();
         try {
-            CacheObject<K,V> co = new CacheObject<K, V>(key,value,expire);
-            if (0 != expire){
-                exisCustomExpire = true;
-            }
-            if (isFull()){
-                eliminate();
-            }
+            CacheObject<K,V> co = new CacheObject<K, V>(key,value);
             cacheMap.put(key,co);
         }
         finally {
@@ -89,9 +57,6 @@ abstract class AbstractCacheMap<K,V> implements LRUCacheImpl<K,V> {
             CacheObject<K,V> co = cacheMap.get(key);
             if(null == co){
                 return null;
-            }if (co.isExpired() == true){
-                cacheMap.remove(key);
-                return null;
             }
             return co.getObject();
         }finally {
@@ -104,22 +69,6 @@ abstract class AbstractCacheMap<K,V> implements LRUCacheImpl<K,V> {
         readLock.lock();
         return cacheMap.keySet();
     }
-
-    public final int eliminate() {
-        writeLock.lock();
-        try {
-            return eliminateCache();
-        }
-        finally {
-            writeLock.unlock();
-        }
-    }
-
-    /**
-     * 淘汰对象的实现
-     * @return
-     * */
-    protected abstract int eliminateCache();
 
     public boolean isFull(){
         if (0 == cacheSize){

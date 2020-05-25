@@ -1,7 +1,8 @@
 package util;
 
-import util.LRUCache.LRUCache;
+
+import util.cache.Cache;
 
 public class CacheUtil {
-    public static LRUCache staticCache = new LRUCache(1000, 1800000);
+    public static Cache staticCache = new Cache(10000);
 }

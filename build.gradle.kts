@@ -12,6 +12,9 @@ repositories {
 val jackson_yaml_version = "2.11.0"
 val jackson_version = "2.11.0"
 
+tasks.withType<JavaCompile>{
+    options.encoding = "UTF-8"
+}
 
 dependencies {
     implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:$jackson_yaml_version")
